@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AdamczykPiotr\SimpleScopesAndPermissions\Tests\Fixtures\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +12,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Permission extends Model
 {
-    public $timestamps = false;
+    public const string ATTRIBUTE_ID = 'id';
+    public const string ATTRIBUTE_NAME = 'name';
 
-    protected $guarded = [];
+    public $timestamps = false;
 }

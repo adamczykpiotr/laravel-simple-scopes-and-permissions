@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AdamczykPiotr\SimpleScopesAndPermissions\Concerns;
 
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
@@ -75,7 +77,7 @@ trait HasPermittedScopes
      */
     public function requireHasValidScope(?Performer $performer = null): void
     {
-        if (!$this->hasValidScope($performer)) {
+        if ($this->hasValidScope($performer) === false) {
             throw Permissions::deniedException();
         }
     }

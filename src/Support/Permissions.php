@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AdamczykPiotr\SimpleScopesAndPermissions\Support;
 
 use AdamczykPiotr\SimpleScopesAndPermissions\Contracts\Action;

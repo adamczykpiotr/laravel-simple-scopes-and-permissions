@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AdamczykPiotr\SimpleScopesAndPermissions\Tests\Feature;
 
 use AdamczykPiotr\SimpleScopesAndPermissions\Exceptions\OperationForbiddenException;
@@ -11,13 +13,16 @@ use AdamczykPiotr\SimpleScopesAndPermissions\Tests\TestCase;
 
 class PermittedActionsTest extends TestCase
 {
+    /**
+     * @return void
+     */
     public function testGetPermittedModelActionsReturnsResolvedModelCases(): void
     {
         $user = $this->createUser(rolePermissions: [
             TestPermission::POST_VIEW,
             TestScopePermission::POST_ALL,
         ]);
-        $post = Post::create(['title' => 'A post', 'user_id' => $user->id]);
+        $post = $this->createPost($user);
 
         $this->assertSame([
             'view' => true,
@@ -27,6 +32,9 @@ class PermittedActionsTest extends TestCase
         ], $post->getPermittedModelActions($user));
     }
 
+    /**
+     * @return void
+     */
     public function testGetPermittedModelClassActionsReturnsResolvedClassCases(): void
     {
         $user = $this->createUser(rolePermissions: [TestPermission::POST_VIEW]);
@@ -37,27 +45,36 @@ class PermittedActionsTest extends TestCase
         ], Post::getPermittedModelClassActions($user));
     }
 
+    /**
+     * @return void
+     */
     public function testRequireCanReturnsModelWhenActionPermitted(): void
     {
         $user = $this->createUser(rolePermissions: [
             TestPermission::POST_UPDATE,
             TestScopePermission::POST_ALL,
         ]);
-        $post = Post::create(['title' => 'A post', 'user_id' => $user->id]);
+        $post = $this->createPost($user);
 
         $this->assertSame($post, $post->requireCan(TestAction::GENERIC_EDIT, $user));
     }
 
+    /**
+     * @return void
+     */
     public function testRequireCanThrowsWhenActionForbidden(): void
     {
         $user = $this->createUser(rolePermissions: [TestScopePermission::POST_ALL]);
-        $post = Post::create(['title' => 'A post', 'user_id' => $user->id]);
+        $post = $this->createPost($user);
 
         $this->expectException(OperationForbiddenException::class);
 
         $post->requireCan(TestAction::GENERIC_EDIT, $user);
     }
 
+    /**
+     * @return void
+     */
     public function testRequireHelpersUseGenericActions(): void
     {
         $user = $this->createUser(rolePermissions: [
@@ -65,7 +82,7 @@ class PermittedActionsTest extends TestCase
             TestPermission::POST_CREATE,
             TestScopePermission::POST_ALL,
         ]);
-        $post = Post::create(['title' => 'A post', 'user_id' => $user->id]);
+        $post = $this->createPost($user);
 
         Post::requireIndexable($user);
         Post::requireCreatable($user);
@@ -76,6 +93,9 @@ class PermittedActionsTest extends TestCase
         $post->requireDeletable(performer: $user);
     }
 
+    /**
+     * @return void
+     */
     public function testFallsBackToConfiguredPerformerResolver(): void
     {
         $this->actingAsPerformer($this->createUser(rolePermissions: [TestPermission::POST_VIEW]));

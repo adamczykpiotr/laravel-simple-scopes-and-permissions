@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AdamczykPiotr\SimpleScopesAndPermissions\Tests\Fixtures\Enums;
 
 use AdamczykPiotr\SimpleScopesAndPermissions\Contracts\Permissionable;
@@ -14,6 +16,9 @@ enum TestPermission: string implements Permissionable
     case POST_DELETE = 'permission.post.delete';
     case POST_PUBLISH = 'permission.post.publish';
 
+    /**
+     * @return static[]
+     */
     public function provideRequiredPermissions(): array
     {
         return match ($this) {
@@ -22,21 +27,33 @@ enum TestPermission: string implements Permissionable
         };
     }
 
+    /**
+     * @return static[]
+     */
     public function provideInheritedFromPermissions(): array
     {
         return [];
     }
 
+    /**
+     * @return BackedEnum|null
+     */
     public function provideModelType(): ?BackedEnum
     {
         return null;
     }
 
+    /**
+     * @return PermissionType
+     */
     public static function provideType(): PermissionType
     {
         return PermissionType::MODEL_PERMISSION;
     }
 
+    /**
+     * @return static[]
+     */
     public static function provideHidden(): array
     {
         return [];

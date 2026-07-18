@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AdamczykPiotr\SimpleScopesAndPermissions\Tests\Feature;
 
 use AdamczykPiotr\SimpleScopesAndPermissions\Exceptions\OperationForbiddenException;
@@ -9,6 +11,9 @@ use AdamczykPiotr\SimpleScopesAndPermissions\Tests\TestCase;
 
 class PerformerPermissionsTest extends TestCase
 {
+    /**
+     * @return void
+     */
     public function testCombinesRolePermissionsWithDirectPermissions(): void
     {
         $user = $this->createUser(
@@ -21,6 +26,9 @@ class PerformerPermissionsTest extends TestCase
         $this->assertFalse($user->hasModelPermission(TestPermission::POST_DELETE));
     }
 
+    /**
+     * @return void
+     */
     public function testHasRawPermissionChecksByName(): void
     {
         $user = $this->createUser(rolePermissions: [TestPermission::POST_VIEW]);
@@ -30,6 +38,9 @@ class PerformerPermissionsTest extends TestCase
         $this->assertFalse($user->hasRawPermission('unknown.permission'));
     }
 
+    /**
+     * @return void
+     */
     public function testHasModelScope(): void
     {
         $user = $this->createUser(rolePermissions: [TestScopePermission::POST_OWN]);
@@ -38,6 +49,9 @@ class PerformerPermissionsTest extends TestCase
         $this->assertFalse($user->hasModelScope(TestScopePermission::POST_ALL));
     }
 
+    /**
+     * @return void
+     */
     public function testGetScopesMapsOnlyScopePermissions(): void
     {
         $user = $this->createUser(rolePermissions: [
@@ -48,6 +62,9 @@ class PerformerPermissionsTest extends TestCase
         $this->assertSame([TestScopePermission::POST_OWN], $user->getScopes()->values()->all());
     }
 
+    /**
+     * @return void
+     */
     public function testGetPermissionsMapsOnlyModelPermissions(): void
     {
         $user = $this->createUser(rolePermissions: [
@@ -58,6 +75,9 @@ class PerformerPermissionsTest extends TestCase
         $this->assertSame([TestPermission::POST_VIEW], $user->getPermissions()->values()->all());
     }
 
+    /**
+     * @return void
+     */
     public function testRequirePermissionsPassesWhenAllPresent(): void
     {
         $this->expectNotToPerformAssertions();
@@ -67,6 +87,9 @@ class PerformerPermissionsTest extends TestCase
         $user->requirePermissions(TestPermission::POST_VIEW, TestPermission::POST_UPDATE);
     }
 
+    /**
+     * @return void
+     */
     public function testRequirePermissionsThrowsWhenAnyMissing(): void
     {
         $user = $this->createUser(rolePermissions: [TestPermission::POST_VIEW]);
@@ -76,6 +99,9 @@ class PerformerPermissionsTest extends TestCase
         $user->requirePermissions(TestPermission::POST_VIEW, TestPermission::POST_DELETE);
     }
 
+    /**
+     * @return void
+     */
     public function testRequireOneOfPermissionsPassesWhenAnyPresent(): void
     {
         $this->expectNotToPerformAssertions();
@@ -85,6 +111,9 @@ class PerformerPermissionsTest extends TestCase
         $user->requireOneOfPermissions(TestPermission::POST_VIEW, TestPermission::POST_UPDATE);
     }
 
+    /**
+     * @return void
+     */
     public function testRequireOneOfPermissionsThrowsWhenNonePresent(): void
     {
         $user = $this->createUser();

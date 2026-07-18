@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AdamczykPiotr\SimpleScopesAndPermissions\Tests\Feature;
 
 use AdamczykPiotr\SimpleScopesAndPermissions\Exceptions\OperationForbiddenException;
@@ -10,6 +12,9 @@ use AdamczykPiotr\SimpleScopesAndPermissions\Tests\TestCase;
 
 class PermittedScopesTest extends TestCase
 {
+    /**
+     * @return void
+     */
     public function testAllScopeSeesEveryRow(): void
     {
         $user = $this->createUser(rolePermissions: [TestScopePermission::POST_ALL]);
@@ -18,6 +23,9 @@ class PermittedScopesTest extends TestCase
         $this->assertSame(3, Post::query()->tap(Post::applyQueryScope($user))->count());
     }
 
+    /**
+     * @return void
+     */
     public function testOwnScopeSeesOnlyOwnRows(): void
     {
         $user = $this->createUser(rolePermissions: [TestScopePermission::POST_OWN]);
@@ -29,6 +37,9 @@ class PermittedScopesTest extends TestCase
         $this->assertSame($user->id, $posts->first()?->user_id);
     }
 
+    /**
+     * @return void
+     */
     public function testNoScopeFailsClosed(): void
     {
         $user = $this->createUser();
@@ -37,6 +48,9 @@ class PermittedScopesTest extends TestCase
         $this->assertSame(0, Post::query()->tap(Post::applyQueryScope($user))->count());
     }
 
+    /**
+     * @return void
+     */
     public function testLeastConstrainedScopeWins(): void
     {
         $user = $this->createUser(rolePermissions: [
@@ -49,6 +63,9 @@ class PermittedScopesTest extends TestCase
         $this->assertSame(3, Post::query()->tap(Post::applyQueryScope($user))->count());
     }
 
+    /**
+     * @return void
+     */
     public function testGetLowestScopeReturnsNullWithoutScopes(): void
     {
         $this->assertNull(Post::getLowestScope($this->createUser()));
@@ -58,21 +75,27 @@ class PermittedScopesTest extends TestCase
         );
     }
 
+    /**
+     * @return void
+     */
     public function testHasValidScopeVerifiesInstanceVisibility(): void
     {
         $owner = $this->createUser(rolePermissions: [TestScopePermission::POST_OWN]);
         $stranger = $this->createUser(rolePermissions: [TestScopePermission::POST_OWN]);
-        $post = Post::create(['title' => 'Owned', 'user_id' => $owner->id]);
+        $post = $this->createPost($owner, title: 'Owned');
 
         $this->assertTrue($post->hasValidScope($owner));
         $this->assertFalse($post->hasValidScope($stranger));
     }
 
+    /**
+     * @return void
+     */
     public function testRequireHasValidScopeThrowsForInvisibleRow(): void
     {
         $owner = $this->createUser(rolePermissions: [TestScopePermission::POST_OWN]);
         $stranger = $this->createUser(rolePermissions: [TestScopePermission::POST_OWN]);
-        $post = Post::create(['title' => 'Owned', 'user_id' => $owner->id]);
+        $post = $this->createPost($owner, title: 'Owned');
 
         $post->requireHasValidScope($owner);
 
@@ -81,10 +104,14 @@ class PermittedScopesTest extends TestCase
         $post->requireHasValidScope($stranger);
     }
 
+    /**
+     * @param User $user
+     * @return void
+     */
     private function createPosts(User $user): void
     {
-        Post::create(['title' => 'Mine', 'user_id' => $user->id]);
-        Post::create(['title' => 'Other 1', 'user_id' => $this->createUser()->id]);
-        Post::create(['title' => 'Other 2', 'user_id' => $this->createUser()->id]);
+        $this->createPost($user, title: 'Mine');
+        $this->createPost($this->createUser(), title: 'Other 1');
+        $this->createPost($this->createUser(), title: 'Other 2');
     }
 }

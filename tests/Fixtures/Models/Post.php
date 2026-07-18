@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AdamczykPiotr\SimpleScopesAndPermissions\Tests\Fixtures\Models;
 
 use AdamczykPiotr\SimpleScopesAndPermissions\Concerns\HasPermittedActions;
@@ -25,9 +27,13 @@ class Post extends Model
 {
     use HasPermittedActions, HasPermittedScopes;
 
-    public $timestamps = false;
+    public const string ATTRIBUTE_ID = 'id';
+    public const string ATTRIBUTE_TITLE = 'title';
+    public const string ATTRIBUTE_USER_ID = 'user_id';
 
-    protected $guarded = [];
+    public const string RELATION_USER = 'user';
+
+    public $timestamps = false;
 
     /**
      * @return BelongsTo<User, $this>
@@ -37,6 +43,11 @@ class Post extends Model
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * @param Action $action
+     * @param Performer $performer
+     * @return bool|null
+     */
     public function providePermittedActions(Action $action, Performer $performer): ?bool
     {
         return match ($action) {
@@ -52,6 +63,11 @@ class Post extends Model
         };
     }
 
+    /**
+     * @param ScopePermission $scope
+     * @param Performer $performer
+     * @return bool
+     */
     public function provideScopeVerifier(ScopePermission $scope, Performer $performer): bool
     {
         assert($performer instanceof User);
@@ -63,6 +79,11 @@ class Post extends Model
         };
     }
 
+    /**
+     * @param ScopePermission $scope
+     * @param Performer $performer
+     * @return callable|null
+     */
     public static function provideScopeQueryModifier(ScopePermission $scope, Performer $performer): ?callable
     {
         assert($performer instanceof User);

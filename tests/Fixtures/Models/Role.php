@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AdamczykPiotr\SimpleScopesAndPermissions\Tests\Fixtures\Models;
 
 use Illuminate\Database\Eloquent\Collection;
@@ -13,15 +15,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  */
 class Role extends Model
 {
-    public $timestamps = false;
+    public const string ATTRIBUTE_ID = 'id';
+    public const string ATTRIBUTE_NAME = 'name';
 
-    protected $guarded = [];
+    public const string RELATION_PERMISSIONS = 'permissions';
+
+    public const string TABLE_ROLE_HAS_PERMISSIONS = 'role_has_permissions';
+
+    public $timestamps = false;
 
     /**
      * @return BelongsToMany<Permission, $this>
      */
     public function permissions(): BelongsToMany
     {
-        return $this->belongsToMany(Permission::class, 'role_has_permissions');
+        return $this->belongsToMany(Permission::class, self::TABLE_ROLE_HAS_PERMISSIONS);
     }
 }

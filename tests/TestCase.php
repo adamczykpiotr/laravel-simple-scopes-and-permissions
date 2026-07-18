@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AdamczykPiotr\SimpleScopesAndPermissions\Tests;
 
 use AdamczykPiotr\SimpleScopesAndPermissions\SimpleScopesAndPermissionsServiceProvider;
@@ -7,6 +9,7 @@ use AdamczykPiotr\SimpleScopesAndPermissions\Tests\Fixtures\Enums\TestAction;
 use AdamczykPiotr\SimpleScopesAndPermissions\Tests\Fixtures\Enums\TestPermission;
 use AdamczykPiotr\SimpleScopesAndPermissions\Tests\Fixtures\Enums\TestScopePermission;
 use AdamczykPiotr\SimpleScopesAndPermissions\Tests\Fixtures\Models\Permission;
+use AdamczykPiotr\SimpleScopesAndPermissions\Tests\Fixtures\Models\Post;
 use AdamczykPiotr\SimpleScopesAndPermissions\Tests\Fixtures\Models\Role;
 use AdamczykPiotr\SimpleScopesAndPermissions\Tests\Fixtures\Models\User;
 use AdamczykPiotr\SimpleScopesAndPermissions\Tests\Fixtures\TestPerformerResolver;
@@ -17,6 +20,10 @@ use Orchestra\Testbench\TestCase as Orchestra;
 
 class TestCase extends Orchestra
 {
+
+    /**
+     * @return void
+     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -26,6 +33,10 @@ class TestCase extends Orchestra
         $this->createSchema();
     }
 
+    /**
+     * @param mixed $app
+     * @return array<int, class-string>
+     */
     protected function getPackageProviders($app)
     {
         return [
@@ -33,6 +44,10 @@ class TestCase extends Orchestra
         ];
     }
 
+    /**
+     * @param mixed $app
+     * @return void
+     */
     public function getEnvironmentSetUp($app)
     {
         config()->set('database.default', 'testing');
@@ -43,6 +58,9 @@ class TestCase extends Orchestra
         config()->set('simple-scopes-and-permissions.scope_permission_enum', TestScopePermission::class);
     }
 
+    /**
+     * @return void
+     */
     protected function createSchema(): void
     {
         Schema::create('roles', function (Blueprint $table) {
@@ -81,23 +99,66 @@ class TestCase extends Orchestra
     /**
      * @param array<int, BackedEnum> $rolePermissions
      * @param array<int, BackedEnum> $directPermissions
+     * @return User
      */
     protected function createUser(array $rolePermissions = [], array $directPermissions = []): User
     {
-        $role = Role::create(['name' => 'role-'.uniqid()]);
+        $role = new Role();
+        $role->name = 'role-'.uniqid();
+        $role->save();
+
         $role->permissions()->attach(collect($rolePermissions)->map($this->permissionId(...)));
 
-        $user = User::create(['name' => 'user-'.uniqid(), 'role_id' => $role->id]);
+        $user = new User();
+        $user->name = 'user-'.uniqid();
+        $user->role_id = $role->id;
+        $user->save();
+
         $user->permissions()->attach(collect($directPermissions)->map($this->permissionId(...)));
 
         return $user;
     }
 
-    protected function permissionId(BackedEnum $permission): int
+    /**
+     * @param User $author
+     * @param string $title
+     * @return Post
+     */
+    protected function createPost(User $author, string $title = 'A post'): Post
     {
-        return Permission::firstOrCreate(['name' => $permission->value])->id;
+        $post = new Post();
+        $post->title = $title;
+        $post->user_id = $author->id;
+        $post->save();
+
+        return $post;
     }
 
+    /**
+     * @param BackedEnum $permission
+     * @return int
+     */
+    protected function permissionId(BackedEnum $permission): int
+    {
+        $existingPermission = Permission::query()
+            ->where(Permission::ATTRIBUTE_NAME, $permission->value)
+            ->first();
+
+        if ($existingPermission !== null) {
+            return $existingPermission->id;
+        }
+
+        $newPermission = new Permission();
+        $newPermission->name = (string) $permission->value;
+        $newPermission->save();
+
+        return $newPermission->id;
+    }
+
+    /**
+     * @param User $user
+     * @return User
+     */
     protected function actingAsPerformer(User $user): User
     {
         TestPerformerResolver::$performer = $user;

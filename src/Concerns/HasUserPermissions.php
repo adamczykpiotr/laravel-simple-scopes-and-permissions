@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace AdamczykPiotr\SimpleScopesAndPermissions\Concerns;
 
 use AdamczykPiotr\SimpleScopesAndPermissions\Contracts\Permissionable;
@@ -132,7 +134,7 @@ trait HasUserPermissions
     public function requirePermissions(Permissionable ...$permissions): void
     {
         collect($permissions)->each(function (Permissionable $permission) {
-            if (!$this->hasRawPermission((string) $permission->value)) {
+            if ($this->hasRawPermission((string) $permission->value) === false) {
                 throw Permissions::deniedException();
             }
         });
@@ -151,7 +153,7 @@ trait HasUserPermissions
                 false
             );
 
-        if (!$hasAnyPermission) {
+        if ($hasAnyPermission === false) {
             throw Permissions::deniedException();
         }
     }
