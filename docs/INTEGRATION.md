@@ -43,16 +43,42 @@ The resolver returns "the user this check runs for" when the caller didn't pass 
 reference app resolves it from the authenticated user and additionally supports impersonation via an
 `X-Impersonate-User-Id` header (gated on its own permission):
 
+For most applications the resolver is a thin wrapper around the auth guard:
+
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Helpers;
+namespace App\Auth;
 
 use AdamczykPiotr\SimpleScopesAndPermissions\Contracts\Performer;
 use AdamczykPiotr\SimpleScopesAndPermissions\Contracts\PerformerResolver;
+use Illuminate\Auth\AuthenticationException;
 
+class AuthenticatedPerformerResolver implements PerformerResolver
+{
+
+    /**
+     * @return Performer
+     */
+    public function resolve(): Performer
+    {
+        $user = auth()->user();
+
+        return $user instanceof Performer
+            ? $user
+            : throw new AuthenticationException();
+    }
+}
+```
+
+The reference app goes one step further and supports **impersonation**: administrators holding a
+dedicated app permission can act as another user by sending an `X-Impersonate-User-Id` header.
+Because every permission and scope check flows through the performer, impersonation needs no other
+integration point — swap the performer and the whole authorization surface follows:
+
+```php
 class CurrentPerformerResolver implements PerformerResolver
 {
 
@@ -61,10 +87,23 @@ class CurrentPerformerResolver implements PerformerResolver
      */
     public function resolve(): Performer
     {
-        return Helper::currentUser();
+        $authenticatedUser = auth()->user() ?? throw new AuthenticationException();
+
+        $impersonatedUserId = request()->header('X-Impersonate-User-Id');
+        if ($impersonatedUserId === null) {
+            return $authenticatedUser;
+        }
+
+        // Only users explicitly granted the impersonation permission may switch identity
+        $authenticatedUser->requirePermissions(AppPermission::APP_IMPERSONATE);
+
+        return User::query()->findOrFail((int) $impersonatedUserId);
     }
 }
 ```
+
+> Cache the resolved performer per request (the reference app memoizes it in a helper) — the
+> resolver runs on every implicit check.
 
 > Services should still receive the performer explicitly (`requireViewable(performer: $user)`) —
 > the resolver exists for HTTP entry points, not as a service-layer crutch. Relying on the ambient
@@ -400,7 +439,92 @@ Two supporting patterns from the reference app worth copying:
 - **Scope validation-rule lookups** — rules that check "referenced record exists" apply
   `Model::applyQueryScope()` to the existence query, so users can't reference rows they cannot see.
 
-## 7. Direct permission checks
+## 7. Returning permissions to the frontend
+
+Authorization rules live in one place — the backend — but the UI still needs to know which buttons
+to render. Instead of re-implementing the rules in JavaScript, the reference app ships the *result*
+of the rules with every API payload.
+
+### Per-record action maps
+
+`getPermittedModelActions()` evaluates every instance action for a record and returns a
+`['action' => bool]` map (actions the model's `providePermittedActions()` answered `null` for are
+omitted). API resources include it alongside the data:
+
+```php
+class DocumentResource extends JsonResource
+{
+
+    /**
+     * @param Request $request
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'title' => $this->title,
+            // ...
+            'permitted_actions' => $this->getPermittedModelActions(),
+        ];
+    }
+}
+```
+
+```json
+{
+    "id": 7,
+    "title": "Quarterly report",
+    "permitted_actions": { "view": true, "edit": true, "delete": false }
+}
+```
+
+The frontend then renders straight off the map — `v-if="document.permitted_actions.edit"` — and
+stays correct automatically as rules evolve. The map honours everything the backend does: scopes,
+instance state (soft deletes, children), and permission prerequisites.
+
+### Class-level action maps
+
+Class-level actions (`list`, `create`, `role.manage`, ...) don't belong to a record, so the
+reference app returns them once per model class with the authenticated-user payload (the `/auth/me`
+response) and uses them to build menus and page-level buttons:
+
+```php
+class AuthController extends Controller
+{
+
+    /**
+     * @return JsonResponse
+     */
+    public function me(): JsonResponse
+    {
+        $modelClassActions = collect([
+            'user' => User::class,
+            'department' => Department::class,
+            'document' => Document::class,
+        ])->map(fn(string $modelClass) => $modelClass::getPermittedModelClassActions());
+
+        return response()->json([
+            'user' => new UserResource(auth()->user()),
+            'model_class_actions' => $modelClassActions,
+        ]);
+    }
+}
+```
+
+```json
+{
+    "model_class_actions": {
+        "user": { "list": true, "create": false },
+        "department": { "list": true, "create": true },
+        "document": { "list": true, "create": true }
+    }
+}
+```
+
+One request, and the sidebar knows which sections to show before any list is ever fetched.
+
+## 8. Direct permission checks
 
 Anywhere a performer instance is available:
 
