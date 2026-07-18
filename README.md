@@ -46,7 +46,9 @@ php artisan vendor:publish --tag="simple-scopes-and-permissions-config"
 Denied checks throw the configured `forbidden_exception`. Query scoping always picks the performer's
 least-constrained scope and fails closed (`WHERE 1 = 0`) when no scope applies.
 
-See `tests/Fixtures` for a complete reference integration.
+See [docs/INTEGRATION.md](docs/INTEGRATION.md) for a complete worked example (config, enums,
+performer resolver, guarded models, controller enforcement) and `tests/Fixtures` for a minimal
+reference integration.
 
 ## Usage
 
