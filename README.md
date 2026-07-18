@@ -1,78 +1,179 @@
-# simple-scopes-and-permissions
+# Simple Scopes & Permissions for Laravel
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/adamczykpiotr/laravel-simple-scopes-and-permissions.svg?style=flat-square)](https://packagist.org/packages/adamczykpiotr/laravel-simple-scopes-and-permissions)
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/adamczykpiotr/laravel-simple-scopes-and-permissions/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/adamczykpiotr/laravel-simple-scopes-and-permissions/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/adamczykpiotr/laravel-simple-scopes-and-permissions.svg?style=flat-square)](https://packagist.org/packages/adamczykpiotr/laravel-simple-scopes-and-permissions)
 
-Simple, explicit permission checks and row-level query scopes constraining what data a user can access.
+Answer two questions in one place: **what may this user do**, and **which rows may they see** —
+with plain PHP enums, no magic, and a fail-closed guarantee.
 
-The package owns the generic machinery; the application declares its own permission enums and wires
-them in via configuration:
+```php
+// May they? (throws your 403 exception if not)
+$document->requireEditable(performer: $user);
 
-- **Model permissions** — CRUD-style abilities per model type (may a user view/create/edit/delete at all)
-- **Scope permissions** — row-level visibility (`ALL` / `DEPARTMENT` / `OWN`), applied both as an
-  instance check and as an Eloquent query constraint, failing closed on misconfiguration
-- **Actions** — the concrete operations exposed to consumers (`view`, `list`, `edit`, ...), resolved
-  per model
-- **Performer** — the user a check is evaluated for; always explicit, with a configurable resolver
-  fallback
+// Which rows? (query constrained to what the user may see)
+Document::query()->tap(Document::applyQueryScope($user))->get();
+
+// What should the UI show? (per-record action map for your frontend)
+$document->getPermittedModelActions($user);
+// ['view' => true, 'edit' => true, 'delete' => false, ...]
+```
+
+## Why this package
+
+Most permission packages answer "does the user have permission X?" and stop there. In real apps the
+harder question is row-level: a manager may edit *users*, but only users **in their own
+department**. This package treats that as a first-class concept:
+
+- **Row-level scopes, enforced twice.** Every scope works as an instance check (*may they see this
+  record?*) and as an Eloquent query constraint (*which records do we even fetch?*) — so lists and
+  detail pages can't disagree.
+- **Fails closed.** A missing or misconfigured scope yields `WHERE 1 = 0`. Mistakes hide rows;
+  they never leak them.
+- **Everything is an enum.** Actions, permissions, and scopes are string-backed enums *you* define
+  in your app. No string tables sprinkled through the codebase, full IDE navigation, exhaustive
+  `match` statements.
+- **No magic.** No global scopes, no observers, no middleware guessing. Every check is an explicit
+  call you can read at the call site.
+- **Explicit performer.** Every check accepts the user it runs for. The "current user" fallback is
+  a single resolver you control — which also makes impersonation trivial.
+- **Frontend-friendly.** One call returns a `['action' => bool]` map per record, so the UI can
+  enable/disable buttons without re-implementing your rules in JavaScript.
 
 ## Installation
 
-Install the package via Composer:
-
 ```bash
 composer require adamczykpiotr/laravel-simple-scopes-and-permissions
-```
-
-Publish the config file:
-
-```bash
 php artisan vendor:publish --tag="simple-scopes-and-permissions-config"
 ```
 
-## Integration
+Supports Laravel 10–13 on PHP 8.3+.
 
-1. Create your permission enums (backed by `string`) implementing the library contracts:
-   - `Contracts\Action` — the operations exposed to consumers (`view`, `list`, `edit`, ...)
-   - `Contracts\Permissionable` — CRUD-style model permissions
-   - `Contracts\ScopePermission` — row-level visibility scopes, each mapping to a `Contracts\ScopeType` (lower constraint level = less constrained = wins). `Enums\ScopeType` ships as a default (`ALL` / `DEPARTMENT` / `OWN`); apps with different visibility semantics implement the contract with their own enum
-2. Create a `Contracts\PerformerResolver` returning the current user (e.g. from the auth guard).
-3. Wire everything in `config/simple-scopes-and-permissions.php` (`action_enum`, `model_permission_enum`, `scope_permission_enum`, `performer_resolver`, `forbidden_exception`).
-4. On the user model: `use Concerns\HasUserPermissions` and `implements Contracts\Performer`. The model must expose a `role` relation (with a nested `permissions` relation) and a direct `permissions` relation, both returning records with a `name` attribute holding the permission name.
-5. On each guarded model: `use Concerns\HasPermittedActions` and override `providePermittedActions()`.
-6. On each row-scoped model: `use Concerns\HasPermittedScopes` and override `provideScopeVerifier()` + `provideScopeQueryModifier()`.
+## Quick start
 
-Denied checks throw the configured `forbidden_exception`. Query scoping always picks the performer's
-least-constrained scope and fails closed (`WHERE 1 = 0`) when no scope applies.
+Wire four things in `config/simple-scopes-and-permissions.php`, then guard your models.
 
-See [docs/INTEGRATION.md](docs/INTEGRATION.md) for a complete worked example (config, enums,
-performer resolver, guarded models, controller enforcement) and `tests/Fixtures` for a minimal
-reference integration.
-
-## Usage
+**1. Define your enums** — actions, permissions, and scopes are app-owned string enums
+implementing the package contracts:
 
 ```php
-// Class-level guards
-User::requireIndexable();
-User::requireCreatable($performer);
+enum Action: string implements \AdamczykPiotr\SimpleScopesAndPermissions\Contracts\Action
+{
+    case GENERIC_VIEW = 'view';
+    case GENERIC_LIST = 'list';
+    // ... + genericView()/genericList()/... accessors and modelCases()/modelClassCases()
+}
 
-// Instance guards (throw the configured forbidden exception)
-$user->requireViewable(performer: $performer);
-$user->requireEditable();
+enum Permission: string implements \AdamczykPiotr\SimpleScopesAndPermissions\Contracts\Permissionable
+{
+    case DOCUMENT_VIEW = 'permission.document.view';
+    case DOCUMENT_UPDATE = 'permission.document.update';
+    // ...
+}
 
-// Row-level visibility on queries — always via the performer's least-constrained scope
-User::query()->tap(User::applyQueryScope($performer))->get();
-
-// Direct permission checks on the performer
-$performer->hasModelPermission(ModelPermission::USER_VIEW);
-$performer->requireOneOfPermissions(ModelPermission::USER_VIEW, ModelPermission::USER_UPDATE);
+enum Scope: string implements \AdamczykPiotr\SimpleScopesAndPermissions\Contracts\ScopePermission
+{
+    case DOCUMENT_ALL = 'scope.document.all';
+    case DOCUMENT_OWN = 'scope.document.own';
+    // ... each mapping to a ScopeType (ALL / DEPARTMENT / OWN by default)
+}
 ```
+
+**2. Tell the package who is acting** — a resolver for when no explicit performer is passed:
+
+```php
+class AuthenticatedPerformerResolver implements PerformerResolver
+{
+    public function resolve(): Performer
+    {
+        return auth()->user() ?? throw new AuthenticationException();
+    }
+}
+```
+
+**3. Make your user model a performer:**
+
+```php
+class User extends Authenticatable implements Performer
+{
+    use HasUserPermissions; // combines role permissions + direct per-user grants
+}
+```
+
+**4. Guard your models** with three small hooks:
+
+```php
+class Document extends Model
+{
+    use HasPermittedActions, HasPermittedScopes;
+
+    public function providePermittedActions(Action $action, User $performer): ?bool
+    {
+        return match ($action) {
+            Action::GENERIC_LIST => $performer->hasModelPermission(Permission::DOCUMENT_VIEW),
+            Action::GENERIC_VIEW => $this->hasValidScope($performer)
+                && $performer->hasModelPermission(Permission::DOCUMENT_VIEW),
+            Action::GENERIC_EDIT => $this->hasValidScope($performer)
+                && $performer->hasModelPermission(Permission::DOCUMENT_UPDATE),
+            default => null,
+        };
+    }
+
+    public function provideScopeVerifier(Scope $scope, User $performer): bool
+    {
+        return match ($scope) {
+            Scope::DOCUMENT_ALL => true,
+            Scope::DOCUMENT_OWN => $this->user_id === $performer->id,
+            default => false,
+        };
+    }
+
+    public static function provideScopeQueryModifier(Scope $scope, User $performer): ?Closure
+    {
+        return match ($scope) {
+            Scope::DOCUMENT_ALL => fn($query) => $query,
+            Scope::DOCUMENT_OWN => fn($query) => $query->where('user_id', $performer->id),
+            default => null,
+        };
+    }
+}
+```
+
+That's it. Controllers become one-liners:
+
+```php
+public function index(): JsonResponse
+{
+    Document::requireIndexable();
+
+    $documents = Document::query()
+        ->tap(Document::applyQueryScope())
+        ->get();
+
+    return DocumentResource::collection($documents)->response();
+}
+```
+
+## Going further
+
+The [integration guide](docs/INTEGRATION.md) walks through a complete real-world setup:
+
+- [Authentication & impersonation](docs/INTEGRATION.md#2-the-performer-resolver) — resolving the
+  performer from the auth guard, and impersonating other users via a request header
+- [Designing the enums](docs/INTEGRATION.md#3-the-permission-enums) — prerequisite permissions,
+  scope inheritance, custom scope types beyond ALL/DEPARTMENT/OWN
+- [Guarded models](docs/INTEGRATION.md#5-a-guarded-scoped-model) — a department-tree scope, soft
+  delete rules, models with actions but no scoping
+- [Returning permissions to the frontend](docs/INTEGRATION.md#7-returning-permissions-to-the-frontend)
+  — per-record action maps in API resources and a class-level action map for menus and buttons
+- [Scoped validation rules](docs/INTEGRATION.md#6-enforcement-in-controllers) — stopping users from
+  referencing records they can't see
 
 ## Testing
 
 ```bash
 composer test
+composer analyse
 ```
 
 ## Changelog
