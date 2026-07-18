@@ -1,8 +1,9 @@
 # Integration guide
 
-A complete, real-world integration modeled on the Iodamaster application: users belong to
-departments (a tree), permissions come from a role plus direct per-user grants, and every model is
-guarded by CRUD permissions and row-level visibility scopes.
+A complete, real-world integration modeled on an application I've written in the past for managing
+users' resource authorizations: users belong to departments (a tree), permissions come from a role
+plus direct per-user grants, and every model is guarded by CRUD permissions and row-level
+visibility scopes. It is referred to as "the reference app" below.
 
 ## 1. Configuration
 
@@ -33,13 +34,13 @@ return [
 ```
 
 - `forbidden_exception` lets denied checks throw *your* exception, so your API exception handler
-  keeps producing its usual error envelope (Iodamaster maps it to a 403 with a stable code name).
+  keeps producing its usual error envelope (the reference app maps it to a 403 with a stable code name).
 - The resolver is the fallback for every check where no explicit `$performer` is passed.
 
 ## 2. The performer resolver
 
-The resolver returns "the user this check runs for" when the caller didn't pass one. Iodamaster
-resolves it from the authenticated user and additionally supports impersonation via an
+The resolver returns "the user this check runs for" when the caller didn't pass one. The
+reference app resolves it from the authenticated user and additionally supports impersonation via an
 `X-Impersonate-User-Id` header (gated on its own permission):
 
 ```php
@@ -183,7 +184,7 @@ enum ModelPermission: string implements Permissionable
 
 Row-level visibility. Each scope maps to a `Contracts\ScopeType`, whose only job is providing a
 constraint level. When a performer holds several scopes for a model, the **least-constrained one
-wins** for query scoping. Iodamaster uses the default `Enums\ScopeType` (`ALL` = least
+wins** for query scoping. The reference app uses the default `Enums\ScopeType` (`ALL` = least
 constrained, `DEPARTMENT`, `OWN` = most constrained); an app with different semantics (teams,
 tenants, regions, ...) defines its own enum implementing the contract:
 
@@ -268,7 +269,7 @@ scoped resource — who may see or edit which users.)
 
 ## 5. A guarded, scoped model
 
-`Department` is Iodamaster's canonical example: a tree where `DEPARTMENT_OWN` limits visibility to
+`Department` is the reference app's canonical example: a tree where `DEPARTMENT_OWN` limits visibility to
 the performer's own subtree. Three hooks drive everything:
 
 ```php
@@ -353,12 +354,12 @@ Conventions the hooks follow:
   applicable scope, `applyQueryScope()` falls back to `WHERE 1 = 0` — **misconfiguration hides
   rows, it never leaks them**.
 
-A model with actions but no row scoping (Iodamaster's `Role`) uses only `HasPermittedActions` and
+A model with actions but no row scoping (the reference app's `Role`) uses only `HasPermittedActions` and
 gates on an app-level permission instead of scopes.
 
 ## 6. Enforcement in controllers
 
-Controllers are the enforcement layer. The Iodamaster pattern per endpoint:
+Controllers are the enforcement layer. The pattern per endpoint:
 
 ```php
 class UserController extends Controller
@@ -391,7 +392,7 @@ class UserController extends Controller
 }
 ```
 
-Two supporting patterns from Iodamaster worth copying:
+Two supporting patterns from the reference app worth copying:
 
 - **Expose permitted actions to the frontend** — API resources call
   `$model->getPermittedModelActions()` and include the map in the payload, so the UI can
