@@ -2,6 +2,7 @@
 
 namespace AdamczykPiotr\SimpleScopesAndPermissions;
 
+use AdamczykPiotr\SimpleScopesAndPermissions\Contracts\PerformerResolver;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -20,5 +21,17 @@ class SimpleScopesAndPermissionsServiceProvider extends PackageServiceProvider {
         $package
             ->name('simple-scopes-and-permissions')
             ->hasConfigFile('simple-scopes-and-permissions');
+    }
+
+    /**
+     * @return void
+     */
+    public function packageRegistered(): void {
+        $this->app->bind(PerformerResolver::class, function ($app) {
+            /** @var class-string<PerformerResolver> $resolverClass */
+            $resolverClass = config('simple-scopes-and-permissions.performer_resolver');
+
+            return $app->make($resolverClass);
+        });
     }
 }
