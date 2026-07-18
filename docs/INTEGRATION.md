@@ -465,7 +465,7 @@ class DocumentResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             // ...
-            'permitted_actions' => $this->getPermittedModelActions(),
+            'permittedActions' => $this->getPermittedModelActions(),
         ];
     }
 }
@@ -475,11 +475,11 @@ class DocumentResource extends JsonResource
 {
     "id": 7,
     "title": "Quarterly report",
-    "permitted_actions": { "view": true, "edit": true, "delete": false }
+    "permittedActions": { "view": true, "edit": true, "delete": false }
 }
 ```
 
-The frontend then renders straight off the map — `v-if="document.permitted_actions.edit"` — and
+The frontend then renders straight off the map — `v-if="document.permittedActions.edit"` — and
 stays correct automatically as rules evolve. The map honours everything the backend does: scopes,
 instance state (soft deletes, children), and permission prerequisites.
 
@@ -506,7 +506,7 @@ class AuthController extends Controller
 
         return response()->json([
             'user' => new UserResource(auth()->user()),
-            'model_class_actions' => $modelClassActions,
+            'modelClassActions' => $modelClassActions,
         ]);
     }
 }
@@ -514,7 +514,7 @@ class AuthController extends Controller
 
 ```json
 {
-    "model_class_actions": {
+    "modelClassActions": {
         "user": { "list": true, "create": false },
         "department": { "list": true, "create": true },
         "document": { "list": true, "create": true }
