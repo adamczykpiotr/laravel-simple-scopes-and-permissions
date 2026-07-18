@@ -20,7 +20,9 @@ final class Permissions
      */
     public static function currentPerformer(): Performer
     {
-        return app(PerformerResolver::class)->resolve();
+        $performerResolver = resolve(PerformerResolver::class);
+
+        return $performerResolver->resolve();
     }
 
     /**

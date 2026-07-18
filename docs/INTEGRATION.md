@@ -181,9 +181,11 @@ enum ModelPermission: string implements Permissionable
 
 ### Scope permissions — `Contracts\ScopePermission`
 
-Row-level visibility. Each scope maps to a `ScopeType` (`ALL` = least constrained,
-`DEPARTMENT`, `OWN` = most constrained). When a performer holds several scopes for a model, the
-**least-constrained one wins** for query scoping:
+Row-level visibility. Each scope maps to a `Contracts\ScopeType`, whose only job is providing a
+constraint level. When a performer holds several scopes for a model, the **least-constrained one
+wins** for query scoping. Iodamaster uses the default `Enums\ScopeType` (`ALL` = least
+constrained, `DEPARTMENT`, `OWN` = most constrained); an app with different semantics (teams,
+tenants, regions, ...) defines its own enum implementing the contract:
 
 ```php
 enum ModelScopePermission: string implements ScopePermission

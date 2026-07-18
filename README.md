@@ -36,7 +36,7 @@ php artisan vendor:publish --tag="simple-scopes-and-permissions-config"
 1. Create your permission enums (backed by `string`) implementing the library contracts:
    - `Contracts\Action` — the operations exposed to consumers (`view`, `list`, `edit`, ...)
    - `Contracts\Permissionable` — CRUD-style model permissions
-   - `Contracts\ScopePermission` — row-level visibility scopes, each mapping to a `ScopeType` (`ALL` / `DEPARTMENT` / `OWN`)
+   - `Contracts\ScopePermission` — row-level visibility scopes, each mapping to a `Contracts\ScopeType` (lower constraint level = less constrained = wins). `Enums\ScopeType` ships as a default (`ALL` / `DEPARTMENT` / `OWN`); apps with different visibility semantics implement the contract with their own enum
 2. Create a `Contracts\PerformerResolver` returning the current user (e.g. from the auth guard).
 3. Wire everything in `config/simple-scopes-and-permissions.php` (`action_enum`, `model_permission_enum`, `scope_permission_enum`, `performer_resolver`, `forbidden_exception`).
 4. On the user model: `use Concerns\HasUserPermissions` and `implements Contracts\Performer`. The model must expose a `role` relation (with a nested `permissions` relation) and a direct `permissions` relation, both returning records with a `name` attribute holding the permission name.
