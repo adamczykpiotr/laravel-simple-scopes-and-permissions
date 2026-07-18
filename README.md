@@ -31,6 +31,25 @@ Publish the config file:
 php artisan vendor:publish --tag="simple-scopes-and-permissions-config"
 ```
 
+## Integration
+
+1. Create your permission enums (backed by `string`) implementing the library contracts:
+   - `Contracts\Action` — the operations exposed to consumers (`view`, `list`, `edit`, ...)
+   - `Contracts\Permissionable` — CRUD-style model permissions
+   - `Contracts\ScopePermission` — row-level visibility scopes, each mapping to a `Contracts\ScopeType` (lower constraint level = less constrained = wins). `Enums\ScopeType` ships as a default (`ALL` / `DEPARTMENT` / `OWN`); apps with different visibility semantics implement the contract with their own enum
+2. Create a `Contracts\PerformerResolver` returning the current user (e.g. from the auth guard).
+3. Wire everything in `config/simple-scopes-and-permissions.php` (`action_enum`, `model_permission_enum`, `scope_permission_enum`, `performer_resolver`, `forbidden_exception`).
+4. On the user model: `use Concerns\HasUserPermissions` and `implements Contracts\Performer`. The model must expose a `role` relation (with a nested `permissions` relation) and a direct `permissions` relation, both returning records with a `name` attribute holding the permission name.
+5. On each guarded model: `use Concerns\HasPermittedActions` and override `providePermittedActions()`.
+6. On each row-scoped model: `use Concerns\HasPermittedScopes` and override `provideScopeVerifier()` + `provideScopeQueryModifier()`.
+
+Denied checks throw the configured `forbidden_exception`. Query scoping always picks the performer's
+least-constrained scope and fails closed (`WHERE 1 = 0`) when no scope applies.
+
+See [docs/INTEGRATION.md](docs/INTEGRATION.md) for a complete worked example (config, enums,
+performer resolver, guarded models, controller enforcement) and `tests/Fixtures` for a minimal
+reference integration.
+
 ## Usage
 
 ```php
