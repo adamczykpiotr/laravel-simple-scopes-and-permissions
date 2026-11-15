@@ -398,37 +398,17 @@ gates on an app-level permission instead of scopes.
 
 ### Typing the performer
 
-The package only knows about the `Performer` interface: hooks receive a `Performer`, and
-`Permissions::currentPerformer()` returns one. You have two ways to get your concrete `User` type in
-the hooks:
-
-**Narrow the signature** (used in the examples above). The trait methods are replaced wholesale, so
-PHP applies no variance checks and this works at runtime. PHPStan at high levels, however, reports
-`argument.type` errors inside the traits, because they pass a `Performer` into your `User` parameter.
-
-```php
-public function provideScopeVerifier(ModelScopePermission $scope, User $performer): bool
-```
-
-**Keep the package types and narrow inside**: this passes strict static analysis, at the cost of one
-line per hook (the package's own test fixtures do this):
+Hooks receive a `Performer`. Narrowing the signature to `User` (as above) works at runtime, but
+PHPStan at high levels reports `argument.type` errors. For strict analysis, keep `Performer` and
+narrow inside:
 
 ```php
 public function provideScopeVerifier(ScopePermission $scope, Performer $performer): bool
 {
     assert($performer instanceof User);
-
-    return match ($scope) {
-        ModelScopePermission::DEPARTMENT_ALL => true,
-        ModelScopePermission::DEPARTMENT_OWN => $performer->department_tree->find($this->id) !== null,
-        default => false,
-    };
+    // ...
 }
 ```
-
-The same applies to app code that needs the current user as a `User` rather than a `Performer`:
-wrap `Permissions::currentPerformer()` (or `auth()->user()`) in a small typed helper of your own
-instead of repeating `instanceof` checks.
 
 ## 6. Enforcement in controllers
 
