@@ -91,7 +91,9 @@ class AuthenticatedPerformerResolver implements PerformerResolver
 }
 ```
 
-**3. Make your user model a performer:**
+**3. Make your user model a performer.** A *performer* is anything implementing the
+`Performer` interface — usually your `User` model, but an API client or service account works just
+as well:
 
 ```php
 class User extends Authenticatable implements Performer
@@ -138,6 +140,11 @@ class Document extends Model
     }
 }
 ```
+
+> **About `User $performer`:** the package always passes a `Performer`. Narrowing the hook signatures
+> to your own `User` class is fine at runtime (trait methods aren't variance-checked), but strict
+> static analysis (PHPStan level 9) will flag it. If that matters to you, keep `Performer` in the
+> signature and narrow inside — see [typing the performer](docs/INTEGRATION.md#typing-the-performer).
 
 That's it. Controllers become one-liners:
 

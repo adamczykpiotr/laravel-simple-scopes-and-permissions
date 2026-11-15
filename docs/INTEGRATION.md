@@ -388,13 +388,47 @@ Conventions the hooks follow:
   additionally require `hasValidScope($performer)` and any instance state (soft-deleted, has
   children, ...).
 - Model overrides may narrow the hook signatures to the app's concrete types (`ModelAction`,
-  `User`) — the trait methods are replaced wholesale, so PHP applies no variance checks.
+  `User`) — see [typing the performer](#typing-the-performer) below for the trade-off.
 - Returning `null` from `provideScopeQueryModifier()` for an unhandled scope is safe: with no
   applicable scope, `applyQueryScope()` falls back to `WHERE 1 = 0` — **misconfiguration hides
   rows, it never leaks them**.
 
 A model with actions but no row scoping (the reference app's `Role`) uses only `HasPermittedActions` and
 gates on an app-level permission instead of scopes.
+
+### Typing the performer
+
+The package only knows about the `Performer` interface: hooks receive a `Performer`, and
+`Permissions::currentPerformer()` returns one. You have two ways to get your concrete `User` type in
+the hooks:
+
+**Narrow the signature** (used in the examples above). The trait methods are replaced wholesale, so
+PHP applies no variance checks and this works at runtime. PHPStan at high levels, however, reports
+`argument.type` errors inside the traits, because they pass a `Performer` into your `User` parameter.
+
+```php
+public function provideScopeVerifier(ModelScopePermission $scope, User $performer): bool
+```
+
+**Keep the package types and narrow inside**: this passes strict static analysis, at the cost of one
+line per hook (the package's own test fixtures do this):
+
+```php
+public function provideScopeVerifier(ScopePermission $scope, Performer $performer): bool
+{
+    assert($performer instanceof User);
+
+    return match ($scope) {
+        ModelScopePermission::DEPARTMENT_ALL => true,
+        ModelScopePermission::DEPARTMENT_OWN => $performer->department_tree->find($this->id) !== null,
+        default => false,
+    };
+}
+```
+
+The same applies to app code that needs the current user as a `User` rather than a `Performer`:
+wrap `Permissions::currentPerformer()` (or `auth()->user()`) in a small typed helper of your own
+instead of repeating `instanceof` checks.
 
 ## 6. Enforcement in controllers
 
