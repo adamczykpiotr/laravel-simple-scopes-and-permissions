@@ -388,13 +388,27 @@ Conventions the hooks follow:
   additionally require `hasValidScope($performer)` and any instance state (soft-deleted, has
   children, ...).
 - Model overrides may narrow the hook signatures to the app's concrete types (`ModelAction`,
-  `User`) — the trait methods are replaced wholesale, so PHP applies no variance checks.
+  `User`) — see [typing the performer](#typing-the-performer) below for the trade-off.
 - Returning `null` from `provideScopeQueryModifier()` for an unhandled scope is safe: with no
   applicable scope, `applyQueryScope()` falls back to `WHERE 1 = 0` — **misconfiguration hides
   rows, it never leaks them**.
 
 A model with actions but no row scoping (the reference app's `Role`) uses only `HasPermittedActions` and
 gates on an app-level permission instead of scopes.
+
+### Typing the performer
+
+Hooks receive a `Performer`. Narrowing the signature to `User` (as above) works at runtime, but
+PHPStan at high levels reports `argument.type` errors. For strict analysis, keep `Performer` and
+narrow inside:
+
+```php
+public function provideScopeVerifier(ScopePermission $scope, Performer $performer): bool
+{
+    assert($performer instanceof User);
+    // ...
+}
+```
 
 ## 6. Enforcement in controllers
 

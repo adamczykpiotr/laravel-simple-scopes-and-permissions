@@ -91,7 +91,7 @@ class AuthenticatedPerformerResolver implements PerformerResolver
 }
 ```
 
-**3. Make your user model a performer:**
+**3. Make your user model a performer** (any class implementing `Performer`):
 
 ```php
 class User extends Authenticatable implements Performer
@@ -138,6 +138,9 @@ class Document extends Model
     }
 }
 ```
+
+> Narrowing `$performer` to `User` works at runtime, but strict PHPStan flags it — see
+> [typing the performer](docs/INTEGRATION.md#typing-the-performer).
 
 That's it. Controllers become one-liners:
 
